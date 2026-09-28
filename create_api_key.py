@@ -5,7 +5,6 @@ from app.services.api_key_service import (
     hash_api_key
 )
 
-
 db = SessionLocal()
 
 try:
