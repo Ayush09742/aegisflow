@@ -4,6 +4,7 @@ from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
+    ForeignKey,
     Integer,
     String,
     Float
@@ -18,6 +19,13 @@ class APIKey(Base):
     id = Column(
         Integer,
         primary_key=True,
+        index=True
+    )
+
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=True,
         index=True
     )
 
@@ -44,10 +52,11 @@ class APIKey(Base):
         nullable=False,
         default=10
     )
+
     monthly_budget_usd = Column(
-    Float,
-    nullable=True
-)
+        Float,
+        nullable=True
+    )
 
     is_admin = Column(
         Boolean,
