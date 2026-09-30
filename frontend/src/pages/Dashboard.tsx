@@ -5,6 +5,7 @@ import {
   Clock3,
   Coins,
   Database,
+  Zap,
   KeyRound,
   LogOut,
   Menu,
@@ -543,6 +544,211 @@ function UsageView({
     </>
   );
 }
+function CacheView({
+  usage,
+  loading,
+  error,
+}: {
+  usage: UsageData;
+  loading: boolean;
+  error: string;
+}) {
+  if (loading) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <div className="text-sm text-zinc-500">
+          Loading cache data...
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="mb-8">
+        <div className="mb-2 flex items-center gap-2 text-sm text-violet-300">
+          <Database size={15} />
+          Cache analytics
+        </div>
+
+        <h2 className="text-3xl font-semibold tracking-tight">
+          Redis cache.
+        </h2>
+
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
+          Monitor how AegisFlow reduces duplicate AI requests using
+          response caching.
+        </p>
+      </div>
+
+      {error && (
+        <div className="mb-6 rounded-2xl border border-red-400/20 bg-red-500/10 px-5 py-4 text-sm text-red-300">
+          {error}
+        </div>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          title="Cache Hits"
+          value={usage.cache_hits.toLocaleString()}
+          subtitle="Requests served from cache"
+          icon={<Database size={18} />}
+        />
+
+        <StatCard
+          title="Cache Hit Rate"
+          value={`${usage.cache_hit_rate.toFixed(1)}%`}
+          subtitle="Requests served without provider call"
+          icon={<TrendingUp size={18} />}
+        />
+
+        <StatCard
+          title="Total Requests"
+          value={usage.total_requests.toLocaleString()}
+          subtitle="Requests processed"
+          icon={<Activity size={18} />}
+        />
+
+        <StatCard
+          title="Provider Calls"
+          value={Math.max(
+            usage.total_requests - usage.cache_hits,
+            0
+          ).toLocaleString()}
+          subtitle="Requests that reached AI provider"
+          icon={<Zap size={18} />}
+        />
+      </div>
+
+      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-6">
+          <div className="text-sm text-zinc-500">
+            Cache efficiency
+          </div>
+
+          <div className="mt-3 text-4xl font-semibold">
+            {usage.cache_hit_rate.toFixed(1)}%
+          </div>
+
+          <p className="mt-3 text-sm text-zinc-500">
+            {usage.cache_hits.toLocaleString()} of{" "}
+            {usage.total_requests.toLocaleString()} requests
+            were served from cache.
+          </p>
+
+          <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/5">
+            <div
+              className="h-full rounded-full bg-violet-400 transition-all"
+              style={{
+                width: `${Math.min(
+                  usage.cache_hit_rate,
+                  100
+                )}%`,
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-6">
+          <div className="text-sm text-zinc-500">
+            Cache configuration
+          </div>
+
+          <div className="mt-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-white/5 pb-4">
+              <span className="text-sm text-zinc-400">
+                Storage
+              </span>
+
+              <span className="text-sm text-violet-300">
+                Redis
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between border-b border-white/5 pb-4">
+              <span className="text-sm text-zinc-400">
+                TTL
+              </span>
+
+              <span className="text-sm text-zinc-200">
+                300 seconds
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-zinc-400">
+                Status
+              </span>
+
+              <span className="flex items-center gap-2 text-sm text-emerald-400">
+                <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                Active
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.035] p-6">
+        <h3 className="font-semibold">
+          How AegisFlow caching works
+        </h3>
+
+        <p className="mt-2 text-sm leading-6 text-zinc-500">
+          AegisFlow creates a deterministic cache key from the AI
+          model and normalized prompt. If a matching response exists
+          in Redis, the cached response is returned instead of making
+          another provider request.
+        </p>
+
+        <div className="mt-6 grid gap-4 sm:grid-cols-3">
+          <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
+            <div className="text-xs text-zinc-600">
+              01
+            </div>
+
+            <div className="mt-2 text-sm font-medium">
+              Request
+            </div>
+
+            <p className="mt-2 text-xs leading-5 text-zinc-600">
+              Client sends an AI prompt through the gateway.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
+            <div className="text-xs text-zinc-600">
+              02
+            </div>
+
+            <div className="mt-2 text-sm font-medium">
+              Redis lookup
+            </div>
+
+            <p className="mt-2 text-xs leading-5 text-zinc-600">
+              AegisFlow checks whether a matching response exists.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
+            <div className="text-xs text-zinc-600">
+              03
+            </div>
+
+            <div className="mt-2 text-sm font-medium">
+              HIT or MISS
+            </div>
+
+            <p className="mt-2 text-xs leading-5 text-zinc-600">
+              HIT returns cached data; MISS calls the AI provider
+              and stores the response.
+            </p>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -555,7 +761,7 @@ export default function Dashboard() {
   const [requestsError, setRequestsError] = useState("");
   const [mobileMenu, setMobileMenu] = useState(false);
   const [activeView, setActiveView] = useState<
-  "overview" | "requests" | "usage" | "api-keys"
+  "overview" | "requests" | "usage" | "api-keys"  | "cache"
 >("overview");
 
   async function loadUsage() {
@@ -726,10 +932,20 @@ export default function Dashboard() {
   Usage
 </button>
 
-              <button className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-zinc-500 transition hover:bg-white/[0.04] hover:text-white">
-                <Database size={18} />
-                Cache
-              </button>
+              <button
+  onClick={() => {
+    setActiveView("cache");
+    setMobileMenu(false);
+  }}
+  className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm transition ${
+    activeView === "cache"
+      ? "border border-violet-400/20 bg-violet-500/10 text-violet-200"
+      : "text-zinc-500 hover:bg-white/[0.04] hover:text-white"
+  }`}
+>
+  <Database size={18} />
+  Cache
+</button>
             </nav>
 
             {/* Bottom */}
@@ -783,11 +999,13 @@ export default function Dashboard() {
                     ? "Usage"
                     : activeView === "api-keys"
                       ? "API Keys"
+                      :activeView === "cache"
+                      ? "cache"
                       : "Overview"}
               </h1>
             </div>
 
-            {activeView !== "api-keys" && (
+            {activeView !== "api-keys" && activeView !== "cache" && (
               <button
                 onClick={
                   activeView === "requests"
@@ -821,20 +1039,26 @@ export default function Dashboard() {
           {/* Content */}
           <div className="mx-auto max-w-7xl px-6 py-8 lg:px-10">
             {activeView === "requests" ? (
-              <RequestsView
-                requests={requests}
-                loading={requestsLoading}
-                error={requestsError}
-              />
-            ) : activeView === "usage" ? (
-              <UsageView
-                usage={usage}
-                loading={loading}
-                error={error}
-              />
-            ) : activeView === "api-keys" ? (
-              <APIKeys />
-            ) : (
+  <RequestsView
+    requests={requests}
+    loading={requestsLoading}
+    error={requestsError}
+  />
+) : activeView === "usage" ? (
+  <UsageView
+    usage={usage}
+    loading={loading}
+    error={error}
+  />
+) : activeView === "api-keys" ? (
+  <APIKeys />
+) : activeView === "cache" ? (
+  <CacheView
+    usage={usage}
+    loading={loading}
+    error={error}
+  />
+) : (
               <>
                 {/* Hero */}
             <div className="mb-8">
