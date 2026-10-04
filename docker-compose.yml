@@ -19,6 +19,7 @@ services:
 
       REDIS_HOST: redis
       REDIS_PORT: 6379
+
       JWT_SECRET: ${JWT_SECRET}
 
     depends_on:
@@ -65,6 +66,9 @@ services:
     image: redis:7-alpine
 
     container_name: aegisflow-redis-compose
+
+    ports:
+      - "6379:6379"
 
     volumes:
       - redis_data:/data

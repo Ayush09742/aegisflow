@@ -14,5 +14,9 @@ class AIResponse:
 class AIProvider(ABC):
 
     @abstractmethod
-    def generate_response(self, prompt: str) -> AIResponse:
+    def generate_response(
+        self,
+        prompt: str,
+        model: str | None = None
+    ) -> AIResponse:
         pass

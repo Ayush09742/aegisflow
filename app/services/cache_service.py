@@ -6,10 +6,18 @@ from app.core.redis import redis_client
 CACHE_TTL_SECONDS = 300
 
 
-def build_cache_key(prompt: str, model: str) -> str:
+def build_cache_key(
+    prompt: str,
+    model: str,
+    cache_scope: str | None = None
+) -> str:
     normalized_prompt = prompt.strip()
 
-    raw_key = f"{model}:{normalized_prompt}"
+    scope = cache_scope or "global"
+
+    raw_key = (
+        f"{scope}:{model}:{normalized_prompt}"
+    )
 
     hashed_key = hashlib.sha256(
         raw_key.encode("utf-8")
@@ -20,12 +28,13 @@ def build_cache_key(prompt: str, model: str) -> str:
 
 def get_cached_response(
     prompt: str,
-    model: str
+    model: str,
+    cache_scope: str | None = None
 ) -> str | None:
-
     key = build_cache_key(
         prompt,
-        model
+        model,
+        cache_scope
     )
 
     return redis_client.get(key)
@@ -34,12 +43,13 @@ def get_cached_response(
 def cache_response(
     prompt: str,
     model: str,
-    response: str
+    response: str,
+    cache_scope: str | None = None
 ) -> None:
-
     key = build_cache_key(
         prompt,
-        model
+        model,
+        cache_scope
     )
 
     redis_client.setex(

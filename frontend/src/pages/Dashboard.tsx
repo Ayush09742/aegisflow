@@ -2,23 +2,37 @@ import { useEffect, useState } from "react";
 import {
   Activity,
   BarChart3,
+  CheckCircle2,
   Clock3,
   Coins,
   Database,
-  Zap,
+  Eye,
+  EyeOff,
   KeyRound,
+  Loader2,
   LogOut,
   Menu,
   RefreshCw,
   ShieldCheck,
   Sparkles,
+  Trash2,
   TrendingUp,
   X,
+  Zap,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useNavigate } from "react-router-dom";
 
-import { getRequests, getUsage } from "../lib/api";
+import {
+  APIError,
+  deleteProviderCredential,
+  getProviderCredentials,
+  getRequests,
+  getUsage,
+  saveProviderCredential,
+  testProviderConnection,
+  type ProviderCredential,
+} from "../lib/api";
 import APIKeys from "./APIKeys";
 
 interface UsageData {
@@ -65,16 +79,49 @@ const emptyUsage: UsageData = {
   total_cost_usd: 0,
 };
 
+function getUserFriendlyAPIError(
+  error: unknown,
+  fallback: string
+): string {
+  if (error instanceof APIError) {
+    if (error.status === 401) {
+      return "Your session has expired. Please log in again.";
+    }
+
+    if (error.status === 403) {
+      return "You don't have permission to access this resource.";
+    }
+
+    if (error.status >= 500) {
+      return "AegisFlow is temporarily unavailable. Please try again.";
+    }
+
+    return error.message || fallback;
+  }
+
+  if (error instanceof TypeError) {
+    return "Unable to connect to AegisFlow. Check that the API is running and try again.";
+  }
+
+  if (error instanceof Error) {
+    return error.message || fallback;
+  }
+
+  return fallback;
+}
+
 function StatCard({
   title,
   value,
   subtitle,
   icon,
+  loading = false,
 }: {
   title: string;
   value: string;
   subtitle: string;
   icon: React.ReactNode;
+  loading?: boolean;
 }) {
   return (
     <motion.div
@@ -89,13 +136,23 @@ function StatCard({
         </div>
       </div>
 
-      <div className="text-2xl font-semibold tracking-tight text-white">
-        {value}
-      </div>
+      {loading ? (
+  <>
+    <div className="h-7 w-28 animate-pulse rounded-lg bg-white/[0.06]" />
 
-      <div className="mt-2 text-xs text-zinc-600">
-        {subtitle}
-      </div>
+    <div className="mt-3 h-3 w-24 animate-pulse rounded bg-white/[0.04]" />
+  </>
+) : (
+  <>
+    <div className="text-2xl font-semibold tracking-tight text-white">
+      {value}
+    </div>
+
+    <div className="mt-2 text-xs text-zinc-600">
+      {subtitle}
+    </div>
+  </>
+)}
     </motion.div>
   );
 }
@@ -105,11 +162,13 @@ function RequestsView({
   requests,
   loading,
   error,
+  onRetry,
   
 }: {
   requests: RequestRecord[];
   loading: boolean;
   error: string;
+  onRetry: () => void;
 }) {
   const [selectedRequest, setSelectedRequest] =
     useState<RequestRecord | null>(null);
@@ -135,10 +194,25 @@ function RequestsView({
       </div>
 
       {error && (
-        <div className="mb-6 rounded-2xl border border-red-400/20 bg-red-500/10 px-5 py-4 text-sm text-red-300">
-          {error}
-        </div>
-      )}
+  <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-red-400/20 bg-red-500/10 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="text-sm text-red-300">
+      {error}
+    </div>
+
+    <button
+      type="button"
+      onClick={onRetry}
+      disabled={loading}
+      className="flex shrink-0 items-center justify-center gap-2 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-200 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      <RefreshCw
+        size={14}
+        className={loading ? "animate-spin" : ""}
+      />
+      Retry
+    </button>
+  </div>
+)}
 
       <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.035]">
         <div className="overflow-x-auto">
@@ -167,15 +241,32 @@ function RequestsView({
                   </td>
                 </tr>
               ) : requests.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="px-5 py-12 text-center text-sm text-zinc-600"
-                  >
-                    No requests found.
-                  </td>
-                </tr>
-              ) : (
+  <tr>
+    <td colSpan={8} className="px-5 py-16">
+      <div className="flex flex-col items-center justify-center text-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-violet-400/20 bg-violet-500/10 text-violet-300">
+          <Activity size={24} />
+        </div>
+
+        <h3 className="mt-5 text-lg font-semibold text-white">
+          No AI requests yet
+        </h3>
+
+        <p className="mt-2 max-w-md text-sm leading-6 text-zinc-500">
+          Your AegisFlow traffic will appear here once your first
+          request is processed.
+        </p>
+
+        <button
+          onClick={() => window.open("/docs", "_blank")}
+          className="mt-6 rounded-xl border border-violet-400/20 bg-violet-500/10 px-4 py-2.5 text-sm font-medium text-violet-200 transition hover:bg-violet-500/20"
+        >
+          View API Docs
+        </button>
+      </div>
+    </td>
+  </tr>
+) : (
                 requests.map((request) => (
                   <tr
                     key={request.id}
@@ -443,10 +534,32 @@ function UsageView({
       </div>
 
       {error && (
-        <div className="mb-6 rounded-2xl border border-red-400/20 bg-red-500/10 px-5 py-4 text-sm text-red-300">
-          {error}
-        </div>
-      )}
+  <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-red-400/20 bg-red-500/10 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <div className="text-sm font-medium text-red-300">
+        Unable to load dashboard data
+      </div>
+
+      <p className="mt-1 text-xs leading-5 text-red-300/70">
+        {error}
+      </p>
+    </div>
+
+    <button
+      onClick={() => {
+  window.location.reload();
+}}
+      disabled={loading}
+      className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-400/20 bg-red-500/10 px-4 py-2 text-xs font-medium text-red-200 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      <RefreshCw
+        size={14}
+        className={loading ? "animate-spin" : ""}
+      />
+      Retry
+    </button>
+  </div>
+)}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
@@ -454,6 +567,7 @@ function UsageView({
           value={usage.total_requests.toLocaleString()}
           subtitle={`${usage.successful_requests} successful`}
           icon={<Activity size={18} />}
+          loading={loading}
         />
         <StatCard
           title="Total Tokens"
@@ -466,27 +580,39 @@ function UsageView({
           value={`${Math.round(usage.average_latency_ms)} ms`}
           subtitle="Average response time"
           icon={<Clock3 size={18} />}
+          loading={loading}
         />
         <StatCard
           title="Total Cost"
           value={`$${usage.total_cost_usd.toFixed(4)}`}
           subtitle="Tracked AI spend"
           icon={<TrendingUp size={18} />}
+           loading={loading}
         />
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-6">
           <div className="text-sm text-zinc-500">Request success rate</div>
-          <div className="mt-3 text-4xl font-semibold">
-            {successRate.toFixed(1)}%
-          </div>
-          <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/5">
-            <div
-              className="h-full rounded-full bg-emerald-400 transition-all"
-              style={{ width: `${Math.min(successRate, 100)}%` }}
-            />
-          </div>
+          {loading ? (
+  <div className="mt-3 h-9 w-24 animate-pulse rounded-lg bg-white/[0.06]" />
+) : (
+  <div className="mt-3 text-3xl font-semibold">
+    {successRate.toFixed(1)}%
+  </div>
+)}
+          {loading ? (
+  <div className="mt-4 h-2 animate-pulse rounded-full bg-white/[0.05]" />
+) : (
+  <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/5">
+    <div
+      className="h-full rounded-full bg-emerald-400 transition-all"
+      style={{
+        width: `${Math.min(successRate, 100)}%`,
+      }}
+    />
+  </div>
+)}
           <div className="mt-4 flex justify-between text-xs">
             <span className="text-emerald-400">
               {usage.successful_requests} successful
@@ -750,6 +876,379 @@ function CacheView({
   );
 }
 
+
+function ProvidersView({
+  providers,
+  loading,
+  error,
+  success,
+  apiKey,
+  showApiKey,
+  testing,
+  saving,
+  onRetry,
+  removing,
+  onApiKeyChange,
+  onToggleApiKey,
+  onTest,
+  onSave,
+  onRemove,
+}: {
+  providers: ProviderCredential[];
+  loading: boolean;
+  error: string;
+  success: string;
+   onRetry: () => void;
+  apiKey: string;
+  showApiKey: boolean;
+  testing: boolean;
+  saving: boolean;
+  removing: string;
+  onApiKeyChange: (value: string) => void;
+  onToggleApiKey: () => void;
+  onTest: () => void;
+  onSave: () => void;
+  onRemove: (provider: string) => void;
+}) {
+  const openRouterCredential = providers.find(
+    (provider) =>
+      provider.provider.toLowerCase() === "openrouter" &&
+      provider.is_active
+  );
+
+  const isBusy = testing || saving;
+
+  return (
+    <>
+      <div className="mb-8">
+        <div className="mb-2 flex items-center gap-2 text-sm text-violet-300">
+          <ShieldCheck size={15} />
+          Provider connections
+        </div>
+
+        <h2 className="text-3xl font-semibold tracking-tight">
+          Your providers.
+        </h2>
+
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
+          Connect your own AI provider credentials and route your traffic
+          through the AegisFlow control plane.
+        </p>
+      </div>
+
+      {error && (
+  <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-red-400/20 bg-red-500/10 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="text-sm text-red-300">
+      {error}
+    </div>
+
+    <button
+      type="button"
+      onClick={onRetry}
+      disabled={loading}
+      className="flex shrink-0 items-center justify-center gap-2 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-200 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      <RefreshCw
+        size={14}
+        className={loading ? "animate-spin" : ""}
+      />
+      Retry
+    </button>
+  </div>
+)}
+
+      {success && (
+        <div className="mb-6 flex items-center gap-2 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-5 py-4 text-sm text-emerald-300">
+          <CheckCircle2 size={16} />
+          {success}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex min-h-[400px] items-center justify-center">
+          <div className="flex items-center gap-3 text-sm text-zinc-500">
+            <Loader2 size={17} className="animate-spin" />
+            Loading provider connections...
+          </div>
+        </div>
+      ) : (
+        <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-3xl border border-white/10 bg-white/[0.035] p-6 backdrop-blur-xl"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-violet-400/20 bg-violet-500/10">
+                  <Sparkles size={22} className="text-violet-300" />
+                </div>
+
+                <div>
+                  <div className="text-xs uppercase tracking-[0.18em] text-zinc-600">
+                    Provider
+                  </div>
+                  <h3 className="mt-1 text-xl font-semibold text-white">
+                    OpenRouter
+                  </h3>
+                </div>
+              </div>
+
+              {openRouterCredential ? (
+                <span className="flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-300">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  Connected
+                </span>
+              ) : (
+                <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-zinc-500">
+                  Not connected
+                </span>
+              )}
+            </div>
+
+            {openRouterCredential ? (
+              <div className="mt-8">
+                <div className="rounded-2xl border border-white/10 bg-black/10 p-5">
+                  <div className="flex items-center gap-2 text-sm text-zinc-300">
+                    <ShieldCheck size={16} className="text-emerald-400" />
+                    OpenRouter credential active
+                  </div>
+
+                  <p className="mt-2 text-sm leading-6 text-zinc-500">
+                    Your provider credential is encrypted and associated with
+                    your AegisFlow user account. The secret key is never
+                    displayed here.
+                  </p>
+
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
+                      <div className="text-xs text-zinc-600">
+                        Credential storage
+                      </div>
+                      <div className="mt-2 flex items-center gap-2 text-sm text-zinc-300">
+                        <ShieldCheck size={15} className="text-violet-300" />
+                        Encrypted
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
+                      <div className="text-xs text-zinc-600">
+                        Routing
+                      </div>
+                      <div className="mt-2 flex items-center gap-2 text-sm text-zinc-300">
+                        <CheckCircle2 size={15} className="text-emerald-400" />
+                        BYOK enabled
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 border-t border-white/5 pt-5">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <div className="text-xs text-zinc-600">
+                          Last updated
+                        </div>
+                        <div className="mt-1 text-sm text-zinc-400">
+                          {new Date(
+                            openRouterCredential.updated_at
+                          ).toLocaleString()}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onRemove(openRouterCredential.provider)
+                        }
+                        disabled={
+                          removing === openRouterCredential.provider
+                        }
+                        className="flex items-center gap-2 rounded-xl border border-red-400/20 bg-red-500/5 px-4 py-2.5 text-sm text-red-300 transition hover:bg-red-500/10 disabled:opacity-50"
+                      >
+                        {removing === openRouterCredential.provider ? (
+                          <Loader2 size={15} className="animate-spin" />
+                        ) : (
+                          <Trash2 size={15} />
+                        )}
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-5 flex items-center gap-2 text-xs text-zinc-600">
+                  <CheckCircle2 size={14} className="text-emerald-400" />
+                  Applications can now use your OpenRouter credential through
+                  AegisFlow.
+                </div>
+              </div>
+            ) : (
+              <div className="mt-8 rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-8 text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03]">
+                  <KeyRound size={21} className="text-zinc-500" />
+                </div>
+
+                <h3 className="mt-4 font-medium text-white">
+                  No OpenRouter credential connected
+                </h3>
+
+                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-zinc-600">
+                  Add your OpenRouter API key to enable BYOK routing for your
+                  AegisFlow traffic.
+                </p>
+              </div>
+            )}
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            className="rounded-3xl border border-white/10 bg-white/[0.035] p-6 backdrop-blur-xl"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-violet-400/20 bg-violet-500/10">
+                <KeyRound size={19} className="text-violet-300" />
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-white">
+                  {openRouterCredential
+                    ? "Update OpenRouter"
+                    : "Connect OpenRouter"}
+                </h3>
+                <p className="mt-1 text-xs text-zinc-600">
+                  Bring your own provider key
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-7">
+              <label className="text-sm text-zinc-400">Provider</label>
+
+              <div className="mt-2 flex items-center justify-between rounded-xl border border-white/10 bg-black/10 px-4 py-3.5">
+                <div className="flex items-center gap-3">
+                  <div className="h-2.5 w-2.5 rounded-full bg-violet-400 shadow-[0_0_14px_rgba(167,139,250,0.7)]" />
+                  <span className="text-sm text-zinc-200">
+                    OpenRouter
+                  </span>
+                </div>
+
+                <span className="text-xs text-zinc-600">AI provider</span>
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <label
+                htmlFor="openrouter-api-key"
+                className="text-sm text-zinc-400"
+              >
+                OpenRouter API key
+              </label>
+
+              <div className="relative mt-2">
+                <input
+                  id="openrouter-api-key"
+                  type={showApiKey ? "text" : "password"}
+                  value={apiKey}
+                  onChange={(event) => onApiKeyChange(event.target.value)}
+                  placeholder="sk-or-v1-••••••••••••••••"
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3.5 pr-12 font-mono text-sm text-zinc-200 outline-none transition placeholder:text-zinc-700 focus:border-violet-400/40 focus:ring-2 focus:ring-violet-400/10"
+                />
+
+                <button
+                  type="button"
+                  onClick={onToggleApiKey}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-600 transition hover:text-zinc-300"
+                  aria-label={
+                    showApiKey ? "Hide API key" : "Show API key"
+                  }
+                >
+                  {showApiKey ? (
+                    <EyeOff size={18} />
+                  ) : (
+                    <Eye size={18} />
+                  )}
+                </button>
+              </div>
+
+              <p className="mt-2 text-xs leading-5 text-zinc-600">
+                Your key is sent over the authenticated connection, validated
+                by AegisFlow, and stored encrypted. It is not shown after
+                saving.
+              </p>
+            </div>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={onTest}
+                disabled={!apiKey.trim() || isBusy}
+                className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm font-medium text-zinc-200 transition hover:border-violet-400/30 hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {testing ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Testing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw size={16} />
+                    Test connection
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={onSave}
+                disabled={!apiKey.trim() || isBusy}
+                className="flex items-center justify-center gap-2 rounded-xl bg-violet-500 px-4 py-3 text-sm font-medium text-white transition hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 size={16} />
+                    {openRouterCredential ? "Update key" : "Save key"}
+                  </>
+                )}
+              </button>
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-white/5 bg-white/[0.02] p-4">
+              <div className="flex items-center gap-2 text-xs text-zinc-400">
+                <ShieldCheck size={14} className="text-violet-300" />
+                Security
+              </div>
+
+              <div className="mt-3 space-y-2 text-xs text-zinc-600">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={13} className="text-emerald-400" />
+                  Credential encrypted at rest
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={13} className="text-emerald-400" />
+                  Isolated per user
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={13} className="text-emerald-400" />
+                  Secret never returned by the API
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
 
@@ -759,48 +1258,184 @@ export default function Dashboard() {
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [error, setError] = useState("");
   const [requestsError, setRequestsError] = useState("");
+  const [providers, setProviders] = useState<ProviderCredential[]>([]);
+  const [providersLoading, setProvidersLoading] = useState(false);
+  const [providersError, setProvidersError] = useState("");
+  const [providersSuccess, setProvidersSuccess] = useState("");
+  const [providerApiKey, setProviderApiKey] = useState("");
+  const [showProviderApiKey, setShowProviderApiKey] = useState(false);
+  const [testingProvider, setTestingProvider] = useState(false);
+  const [savingProvider, setSavingProvider] = useState(false);
+  const [removingProvider, setRemovingProvider] = useState("");
   const [mobileMenu, setMobileMenu] = useState(false);
   const [activeView, setActiveView] = useState<
-  "overview" | "requests" | "usage" | "api-keys"  | "cache"
->("overview");
+    "overview" | "requests" | "usage" | "api-keys" | "cache" | "providers"
+  >("overview");
 
   async function loadUsage() {
-    try {
-      setLoading(true);
-      setError("");
+  try {
+    setLoading(true);
+    setError("");
 
-      const data = await getUsage();
-      setUsage(data);
+    const data = await getUsage();
+    setUsage(data);
+  } catch (err) {
+    setError(
+      getUserFriendlyAPIError(
+        err,
+        "Unable to load usage data."
+      )
+    );
+  } finally {
+    setLoading(false);
+  }
+}
+
+  async function loadRequests() {
+  try {
+    setRequestsLoading(true);
+    setRequestsError("");
+
+    const data = await getRequests();
+    setRequests(data);
+  } catch (err) {
+    setRequestsError(
+      getUserFriendlyAPIError(
+        err,
+        "Unable to load request data."
+      )
+    );
+  } finally {
+    setRequestsLoading(false);
+  }
+}
+
+  async function loadProviders() {
+  try {
+    setProvidersLoading(true);
+    setProvidersError("");
+
+    const data = await getProviderCredentials();
+    setProviders(data);
+  } catch (err) {
+    setProvidersError(
+      getUserFriendlyAPIError(
+        err,
+        "Unable to load provider connections."
+      )
+    );
+  } finally {
+    setProvidersLoading(false);
+  }
+}
+
+  async function handleTestProvider() {
+    if (!providerApiKey.trim()) {
+      setProvidersError("Enter an OpenRouter API key first.");
+      setProvidersSuccess("");
+      return;
+    }
+
+    try {
+      setTestingProvider(true);
+      setProvidersError("");
+      setProvidersSuccess("");
+
+      const result = await testProviderConnection(
+        "openrouter",
+        providerApiKey.trim()
+      );
+
+      if (!result.connected) {
+        setProvidersError(result.message);
+        return;
+      }
+
+      setProvidersSuccess(
+        "OpenRouter connection verified successfully."
+      );
     } catch (err) {
       console.error(err);
-      setError(
-        "Unable to load usage data. Make sure AegisFlow API is running."
+      setProvidersError(
+        err instanceof Error
+          ? err.message
+          : "Unable to test provider connection."
       );
     } finally {
-      setLoading(false);
+      setTestingProvider(false);
     }
   }
 
-  async function loadRequests() {
-    try {
-      setRequestsLoading(true);
-      setRequestsError("");
+  async function handleSaveProvider() {
+    if (!providerApiKey.trim()) {
+      setProvidersError("Enter an OpenRouter API key first.");
+      setProvidersSuccess("");
+      return;
+    }
 
-      const data = await getRequests();
-      setRequests(data);
+    try {
+      setSavingProvider(true);
+      setProvidersError("");
+      setProvidersSuccess("");
+
+      await saveProviderCredential(
+        "openrouter",
+        providerApiKey.trim()
+      );
+
+      setProviderApiKey("");
+      setShowProviderApiKey(false);
+      await loadProviders();
+
+      setProvidersSuccess(
+        "OpenRouter credential saved securely."
+      );
     } catch (err) {
       console.error(err);
-      setRequestsError(
-        "Unable to load request data. Make sure AegisFlow API is running."
+      setProvidersError(
+        err instanceof Error
+          ? err.message
+          : "Unable to save provider credential."
       );
     } finally {
-      setRequestsLoading(false);
+      setSavingProvider(false);
+    }
+  }
+
+  async function handleRemoveProvider(provider: string) {
+    const confirmed = window.confirm(
+      `Remove your ${provider} credential from AegisFlow?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setRemovingProvider(provider);
+      setProvidersError("");
+      setProvidersSuccess("");
+
+      await deleteProviderCredential(provider);
+      await loadProviders();
+
+      setProvidersSuccess(`${provider} credential removed.`);
+    } catch (err) {
+      console.error(err);
+      setProvidersError(
+        err instanceof Error
+          ? err.message
+          : "Unable to remove provider credential."
+      );
+    } finally {
+      setRemovingProvider("");
     }
   }
 
   useEffect(() => {
     loadUsage();
     loadRequests();
+    loadProviders();
   }, []);
 
   function logout() {
@@ -946,6 +1581,23 @@ export default function Dashboard() {
   <Database size={18} />
   Cache
 </button>
+
+              <button
+                onClick={() => {
+                  setActiveView("providers");
+                  setProvidersSuccess("");
+                  setProvidersError("");
+                  setMobileMenu(false);
+                }}
+                className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm transition ${
+                  activeView === "providers"
+                    ? "border border-violet-400/20 bg-violet-500/10 text-violet-200"
+                    : "text-zinc-500 hover:bg-white/[0.04] hover:text-white"
+                }`}
+              >
+                <ShieldCheck size={18} />
+                Providers
+              </button>
             </nav>
 
             {/* Bottom */}
@@ -1000,40 +1652,51 @@ export default function Dashboard() {
                     : activeView === "api-keys"
                       ? "API Keys"
                       :activeView === "cache"
-                      ? "cache"
-                      : "Overview"}
+                        ? "Cache"
+                        : activeView === "providers"
+                          ? "Providers"
+                          : "Overview"}
               </h1>
             </div>
 
-            {activeView !== "api-keys" && activeView !== "cache" && (
-              <button
-                onClick={
-                  activeView === "requests"
-                    ? loadRequests
-                    : loadUsage
-                }
-                disabled={
-                  activeView === "requests"
-                    ? requestsLoading
-                    : loading
-                }
-                className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2.5 text-sm text-zinc-300 transition hover:border-violet-400/30 hover:text-white disabled:opacity-50"
-              >
-                <RefreshCw
-                  size={15}
-                  className={
-                    activeView === "requests"
-                      ? requestsLoading
-                        ? "animate-spin"
-                        : ""
-                      : loading
-                        ? "animate-spin"
-                        : ""
-                  }
-                />
-                Refresh
-              </button>
-            )}
+            {activeView !== "api-keys" && (
+  <button
+    onClick={() => {
+      if (activeView === "requests") {
+        loadRequests();
+      } else {
+        loadUsage();
+      }
+    }}
+    disabled={
+      activeView === "requests"
+        ? requestsLoading
+        : loading
+    }
+    className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2.5 text-sm text-zinc-300 transition hover:border-violet-400/30 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+  >
+    <RefreshCw
+      size={15}
+      className={
+        activeView === "requests"
+          ? requestsLoading
+            ? "animate-spin"
+            : ""
+          : loading
+            ? "animate-spin"
+            : ""
+      }
+    />
+
+    {activeView === "requests"
+      ? requestsLoading
+        ? "Refreshing..."
+        : "Refresh"
+      : loading
+        ? "Refreshing..."
+        : "Refresh"}
+  </button>
+)}
           </header>
 
           {/* Content */}
@@ -1043,6 +1706,7 @@ export default function Dashboard() {
     requests={requests}
     loading={requestsLoading}
     error={requestsError}
+    onRetry={loadRequests}
   />
 ) : activeView === "usage" ? (
   <UsageView
@@ -1057,6 +1721,26 @@ export default function Dashboard() {
     usage={usage}
     loading={loading}
     error={error}
+  />
+) : activeView === "providers" ? (
+  <ProvidersView
+    providers={providers}
+    loading={providersLoading}
+    error={providersError}
+    success={providersSuccess}
+      onRetry={loadProviders}
+    apiKey={providerApiKey}
+    showApiKey={showProviderApiKey}
+    testing={testingProvider}
+    saving={savingProvider}
+    removing={removingProvider}
+    onApiKeyChange={setProviderApiKey}
+    onToggleApiKey={() =>
+      setShowProviderApiKey((current) => !current)
+    }
+    onTest={handleTestProvider}
+    onSave={handleSaveProvider}
+    onRemove={handleRemoveProvider}
   />
 ) : (
               <>
@@ -1078,11 +1762,25 @@ export default function Dashboard() {
             </div>
 
             {error && (
-              <div className="mb-6 rounded-2xl border border-red-400/20 bg-red-500/10 px-5 py-4 text-sm text-red-300">
-                {error}
-              </div>
-            )}
+  <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-red-400/20 bg-red-500/10 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="text-sm text-red-300">
+      {error}
+    </div>
 
+    <button
+      type="button"
+      onClick={loadUsage}
+      disabled={loading}
+      className="flex shrink-0 items-center justify-center gap-2 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-200 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      <RefreshCw
+        size={14}
+        className={loading ? "animate-spin" : ""}
+      />
+      Retry
+    </button>
+  </div>
+)}
             {/* Stats */}
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <StatCard
@@ -1142,9 +1840,13 @@ export default function Dashboard() {
                   Cache Hit Rate
                 </div>
 
-                <div className="mt-3 text-3xl font-semibold">
-                  {usage.cache_hit_rate.toFixed(1)}%
-                </div>
+                {loading ? (
+  <div className="mt-3 h-9 w-24 animate-pulse rounded-lg bg-white/[0.06]" />
+) : (
+  <div className="mt-3 text-3xl font-semibold">
+    {usage.cache_hit_rate.toFixed(1)}%
+  </div>
+)}
 
                 <p className="mt-2 text-xs text-zinc-600">
                   {usage.cache_hits} requests served from cache

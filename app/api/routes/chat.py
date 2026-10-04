@@ -2,7 +2,12 @@ import time
 
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    status
+)
 
 from sqlalchemy.orm import Session
 
@@ -18,6 +23,11 @@ from app.services.ai_service import generate_response
 from app.services.cache_service import (
     get_cached_response,
     cache_response
+)
+
+from app.services.provider_credential_service import (
+    get_provider_credential,
+    get_decrypted_provider_api_key
 )
 
 from app.models.ai_request import AIRequest
@@ -43,7 +53,6 @@ def chat(
     db: Session = Depends(get_db),
     api_key=Depends(authenticate_api_key)
 ):
-
     request_id = str(uuid4())
 
     logger.info(
@@ -55,11 +64,13 @@ def chat(
 
     model = "openrouter/free"
     provider = "openrouter"
+
     try:
         check_budget(
             db,
             api_key
         )
+
     except ValueError:
         logger.warning(
             "Chat request blocked "
@@ -72,17 +83,84 @@ def chat(
             detail="Monthly AI budget exceeded"
         )
 
-    # -----------------------------
+    # ---------------------------------------------------------
+    # Resolve user's provider credential
+    # ---------------------------------------------------------
+
+    provider_credential = None
+    provider_api_key = None
+
+    if api_key.user_id is not None:
+        provider_credential = get_provider_credential(
+            db,
+            user_id=api_key.user_id,
+            provider=provider
+        )
+
+        if provider_credential is not None:
+            try:
+                provider_api_key = (
+                    get_decrypted_provider_api_key(
+                        db,
+                        user_id=api_key.user_id,
+                        provider=provider
+                    )
+                )
+
+            except Exception as error:
+                logger.error(
+                    "Provider credential decryption failed "
+                    "request_id=%s error=%s",
+                    request_id,
+                    error
+                )
+
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Unable to load provider credentials"
+                )
+
+    # ---------------------------------------------------------
+    # Build cache scope
+    # ---------------------------------------------------------
+    #
+    # BYOK users receive an isolated cache namespace.
+    #
+    # The credential ID + updated_at ensures that replacing
+    # the provider key creates a new cache namespace.
+    #
+    # No secret/API key is included in the cache key.
+    # ---------------------------------------------------------
+
+    if provider_credential is not None:
+        cache_scope = (
+            f"user:{api_key.user_id}:"
+            f"provider:{provider}:"
+            f"credential:{provider_credential.id}:"
+            f"version:{provider_credential.updated_at.isoformat()}"
+        )
+
+    elif api_key.user_id is not None:
+        cache_scope = (
+            f"user:{api_key.user_id}:"
+            f"provider:{provider}:"
+            f"platform"
+        )
+
+    else:
+        cache_scope = "platform"
+
+    # ---------------------------------------------------------
     # Check Redis cache
-    # -----------------------------
+    # ---------------------------------------------------------
 
     cached_response = get_cached_response(
         request.prompt,
-        model
+        model,
+        cache_scope
     )
 
     if cached_response is not None:
-
         latency_ms = int(
             (time.perf_counter() - start_time) * 1000
         )
@@ -104,9 +182,6 @@ def chat(
             status="success",
             cache_hit=True,
             latency_ms=latency_ms,
-
-            # Cached responses did not make
-            # a new provider request.
             prompt_tokens=None,
             completion_tokens=None,
             total_tokens=None,
@@ -125,15 +200,33 @@ def chat(
             "latency_ms": latency_ms
         }
 
-    # -----------------------------
+    # ---------------------------------------------------------
     # Cache miss → call provider
-    # -----------------------------
+    # ---------------------------------------------------------
 
     try:
 
-        ai_response = generate_response(
-            request.prompt
-        )
+        # Preserve the existing platform-managed call
+        # when the user has no BYOK credential.
+        if provider_api_key is None:
+            ai_response = generate_response(
+                request.prompt
+            )
+
+        else:
+            logger.info(
+                "Using user provider credential "
+                "request_id=%s user_id=%s provider=%s",
+                request_id,
+                api_key.user_id,
+                provider
+            )
+
+            ai_response = generate_response(
+                request.prompt,
+                model,
+                provider_api_key
+            )
 
         latency_ms = int(
             (time.perf_counter() - start_time) * 1000
@@ -146,19 +239,20 @@ def chat(
             latency_ms
         )
 
-        # -----------------------------
+        # -----------------------------------------------------
         # Save response to Redis
-        # -----------------------------
+        # -----------------------------------------------------
 
         cache_response(
             request.prompt,
             model,
-            ai_response.content
+            ai_response.content,
+            cache_scope
         )
 
-        # -----------------------------
+        # -----------------------------------------------------
         # Save request + usage to DB
-        # -----------------------------
+        # -----------------------------------------------------
 
         ai_request = AIRequest(
             api_key_id=api_key.id,
@@ -170,7 +264,6 @@ def chat(
             status="success",
             cache_hit=False,
             latency_ms=latency_ms,
-
             prompt_tokens=ai_response.prompt_tokens,
             completion_tokens=ai_response.completion_tokens,
             total_tokens=ai_response.total_tokens,
@@ -214,7 +307,6 @@ def chat(
             cache_hit=False,
             latency_ms=latency_ms,
             error_message=str(error),
-
             prompt_tokens=None,
             completion_tokens=None,
             total_tokens=None,

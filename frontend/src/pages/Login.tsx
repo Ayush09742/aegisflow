@@ -8,7 +8,10 @@ import {
   Sparkles,
 } from "lucide-react";
 import React, { useState } from "react";
-import { login } from "../lib/api";
+import {
+  getOAuthStartUrl,
+  login,
+} from "../lib/api";
 
 function GoogleIcon() {
   return (
@@ -55,13 +58,16 @@ function GitHubIcon() {
 function SocialButton({
   provider,
   icon,
+  onClick,
 }: {
   provider: string;
   icon: React.ReactNode;
+  onClick: () => void;
 }) {
   return (
     <motion.button
       type="button"
+      onClick={onClick}
       whileHover={{
         scale: 1.02,
         boxShadow: "0 0 30px rgba(139,92,246,0.16)",
@@ -98,7 +104,18 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const data = await login(email, password);
+      const data = await login(
+        email.trim(),
+        password
+      );
+
+      /*
+       * Keep authentication storage consistent
+       * across Login, ProtectedRoute, Dashboard,
+       * API helpers and Logout.
+       */
+      localStorage.removeItem("aegisflow_access_token");
+      localStorage.removeItem("aegisflow_user");
 
       localStorage.setItem(
         "access_token",
@@ -106,16 +123,20 @@ export default function Login() {
       );
 
       localStorage.setItem(
-        "aegisflow_user",
+        "user",
         JSON.stringify({
-          user_id: data.user_id,
+          id: data.user_id,
           name: data.name,
           email: data.email,
         })
       );
 
-      navigate("/dashboard");
+      navigate("/dashboard", {
+        replace: true,
+      });
     } catch (err) {
+      console.error("Login failed:", err);
+
       setError(
         err instanceof Error
           ? err.message
@@ -151,8 +172,16 @@ export default function Login() {
       />
 
       <motion.div
-        initial={{ opacity: 0, y: 30, scale: 0.97 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
+        initial={{
+          opacity: 0,
+          y: 30,
+          scale: 0.97,
+        }}
+        animate={{
+          opacity: 1,
+          y: 0,
+          scale: 1,
+        }}
         transition={{
           duration: 0.8,
           ease: [0.22, 1, 0.36, 1],
@@ -160,11 +189,15 @@ export default function Login() {
         className="relative z-10 w-full max-w-md"
       >
         <div className="mb-8 flex justify-center">
-          <Link to="/" className="flex items-center gap-3">
+          <Link
+            to="/"
+            className="flex items-center gap-3"
+          >
             <motion.div
               whileHover={{
                 scale: 1.05,
-                boxShadow: "0 0 30px rgba(139,92,246,0.4)",
+                boxShadow:
+                  "0 0 30px rgba(139,92,246,0.4)",
               }}
               className="flex h-10 w-10 items-center justify-center rounded-xl border border-violet-400/30 bg-violet-500/10"
             >
@@ -200,11 +233,21 @@ export default function Login() {
             <SocialButton
               provider="Google"
               icon={<GoogleIcon />}
+              onClick={() => {
+                window.location.assign(
+                  getOAuthStartUrl("google")
+                );
+              }}
             />
 
             <SocialButton
               provider="GitHub"
               icon={<GitHubIcon />}
+              onClick={() => {
+                window.location.assign(
+                  getOAuthStartUrl("github")
+                );
+              }}
             />
           </div>
 
@@ -257,7 +300,9 @@ export default function Login() {
               <div className="relative">
                 <input
                   type={
-                    showPassword ? "text" : "password"
+                    showPassword
+                      ? "text"
+                      : "password"
                   }
                   value={password}
                   onChange={(event) =>
@@ -350,7 +395,9 @@ export default function Login() {
               }
               className="group flex w-full items-center justify-center gap-2 rounded-xl bg-white px-5 py-3.5 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {loading ? "Logging in..." : "Log in"}
+              {loading
+                ? "Logging in..."
+                : "Log in"}
 
               {!loading && (
                 <ArrowRight

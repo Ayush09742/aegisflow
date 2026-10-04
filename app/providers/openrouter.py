@@ -6,18 +6,39 @@ from app.providers.base import AIProvider, AIResponse
 
 class OpenRouterProvider(AIProvider):
 
-    def __init__(self):
+    def __init__(
+        self,
+        api_key: str | None = None
+    ):
+        self.api_key = (
+            api_key
+            if api_key is not None
+            else settings.openrouter_api_key
+        )
+
         self.client = OpenAI(
-            api_key=settings.openrouter_api_key,
+            api_key=self.api_key,
             base_url="https://openrouter.ai/api/v1",
             timeout=15.0,
             max_retries=0,
         )
+    def test_connection(self) -> bool:
+        self.client.models.list()
+        return True
+    def test_connection(self) -> bool:
+        self.client.models.list()
+        return True
 
-    def generate_response(self, prompt: str) -> AIResponse:
+    def generate_response(
+        self,
+        prompt: str,
+        model: str | None = None
+    ) -> AIResponse:
+
+        selected_model = model or "openrouter/free"
 
         response = self.client.chat.completions.create(
-            model="openrouter/free",
+            model=selected_model,
             messages=[
                 {
                     "role": "user",

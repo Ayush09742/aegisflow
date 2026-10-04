@@ -14,13 +14,27 @@ from app.core.logger import get_logger
 
 MAX_ATTEMPTS = 3
 
-
-provider = OpenRouterProvider()
-
 logger = get_logger("aegisflow.ai")
 
+# Default provider.
+# Kept at module level for existing tests and
+# the current platform-managed OpenRouter flow.
+provider = OpenRouterProvider()
 
-def generate_response(prompt: str) -> AIResponse:
+
+def generate_response(
+    prompt: str,
+    model: str = "openrouter/free",
+    provider_api_key: str | None = None
+) -> AIResponse:
+
+    active_provider = (
+        provider
+        if provider_api_key is None
+        else OpenRouterProvider(
+            api_key=provider_api_key
+        )
+    )
 
     for attempt in range(1, MAX_ATTEMPTS + 1):
 
@@ -32,9 +46,20 @@ def generate_response(prompt: str) -> AIResponse:
                 MAX_ATTEMPTS
             )
 
-            response = provider.generate_response(
-                prompt
-            )
+            # Preserve the existing provider call signature
+            # for the default OpenRouter flow.
+            if (
+                provider_api_key is None
+                and model == "openrouter/free"
+            ):
+                response = active_provider.generate_response(
+                    prompt
+                )
+            else:
+                response = active_provider.generate_response(
+                    prompt,
+                    model
+                )
 
             logger.info(
                 "AI request completed attempt=%s",

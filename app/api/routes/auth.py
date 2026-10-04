@@ -1,7 +1,23 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from urllib.parse import urlencode
+
+import secrets
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    status,
+)
+from fastapi.responses import RedirectResponse
+from fastapi.security import (
+    HTTPAuthorizationCredentials,
+    HTTPBearer,
+)
+from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import (
     create_access_token,
@@ -9,12 +25,24 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
+from app.models.oauth_account import OAuthAccount
 from app.models.user import User
 from app.schemas.auth import (
     AuthResponse,
     LoginRequest,
+    OAuthExchangeRequest,
     SignupRequest,
     UserResponse,
+)
+from app.services.oauth_service import (
+    consume_oauth_exchange_code,
+    consume_oauth_state,
+    create_oauth_exchange_code,
+    create_oauth_state,
+    exchange_github_code,
+    exchange_google_code,
+    get_github_authorization_url,
+    get_google_authorization_url,
 )
 
 
@@ -24,6 +52,22 @@ router = APIRouter(
 )
 
 bearer_scheme = HTTPBearer()
+
+
+def build_auth_response(
+    user: User
+) -> dict:
+    access_token = create_access_token(
+        user.id
+    )
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user_id": user.id,
+        "name": user.name,
+        "email": user.email,
+    }
 
 
 @router.post(
@@ -44,13 +88,18 @@ def signup(
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="An account with this email already exists"
+            detail=(
+                "An account with this email "
+                "already exists"
+            )
         )
 
     user = User(
         name=request.name,
         email=request.email,
-        password_hash=hash_password(request.password),
+        password_hash=hash_password(
+            request.password
+        ),
         is_active=True
     )
 
@@ -58,15 +107,7 @@ def signup(
     db.commit()
     db.refresh(user)
 
-    access_token = create_access_token(user.id)
-
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user_id": user.id,
-        "name": user.name,
-        "email": user.email,
-    }
+    return build_auth_response(user)
 
 
 @router.post(
@@ -98,15 +139,383 @@ def login(
             detail="User account is inactive"
         )
 
-    access_token = create_access_token(user.id)
+    return build_auth_response(user)
 
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user_id": user.id,
-        "name": user.name,
-        "email": user.email,
-    }
+
+@router.get(
+    "/google/start"
+)
+def google_start():
+    state = create_oauth_state("google")
+
+    return RedirectResponse(
+        url=get_google_authorization_url(state),
+        status_code=status.HTTP_302_FOUND,
+    )
+
+
+@router.get(
+    "/google/callback"
+)
+def google_callback(
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+    db: Session = Depends(get_db),
+):
+    if error:
+        params = urlencode({
+            "error": "Google authorization was cancelled"
+        })
+
+        return RedirectResponse(
+            url=(
+                f"{settings.oauth_frontend_url}"
+                f"/oauth/callback?{params}"
+            ),
+            status_code=status.HTTP_302_FOUND,
+        )
+
+    if not code or not state:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing Google OAuth parameters"
+        )
+
+    if not consume_oauth_state(
+        state,
+        "google"
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired OAuth state"
+        )
+
+    try:
+        identity = exchange_google_code(code)
+    except Exception:
+        params = urlencode({
+            "error": "Google authentication failed"
+        })
+
+        return RedirectResponse(
+            url=(
+                f"{settings.oauth_frontend_url}"
+                f"/oauth/callback?{params}"
+            ),
+            status_code=status.HTTP_302_FOUND,
+        )
+
+    user = (
+        db.query(OAuthAccount)
+        .filter(
+            OAuthAccount.provider == identity.provider,
+            OAuthAccount.provider_user_id
+            == identity.provider_user_id,
+        )
+        .first()
+    )
+
+    if user:
+        existing_user = (
+            db.query(User)
+            .filter(User.id == user.user_id)
+            .first()
+        )
+
+        if not existing_user or not existing_user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User account is inactive"
+            )
+
+    else:
+        existing_user = (
+            db.query(User)
+            .filter(
+                func.lower(User.email)
+                == identity.email.lower()
+            )
+            .first()
+        )
+
+        if not existing_user:
+            existing_user = User(
+                name=identity.name,
+                email=identity.email,
+                password_hash=hash_password(
+                    secrets.token_urlsafe(32)
+                ),
+                is_active=True,
+            )
+
+            db.add(existing_user)
+            db.flush()
+
+        elif not existing_user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User account is inactive"
+            )
+
+        oauth_account = OAuthAccount(
+            user_id=existing_user.id,
+            provider=identity.provider,
+            provider_user_id=identity.provider_user_id,
+            email=identity.email,
+        )
+
+        db.add(oauth_account)
+
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+
+            oauth_account = (
+                db.query(OAuthAccount)
+                .filter(
+                    OAuthAccount.provider
+                    == identity.provider,
+                    OAuthAccount.provider_user_id
+                    == identity.provider_user_id,
+                )
+                .first()
+            )
+
+            if not oauth_account:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Unable to create OAuth account"
+                )
+
+            existing_user = (
+                db.query(User)
+                .filter(
+                    User.id
+                    == oauth_account.user_id
+                )
+                .first()
+            )
+
+    exchange_code = create_oauth_exchange_code(
+        existing_user.id
+    )
+
+    return RedirectResponse(
+        url=(
+            f"{settings.oauth_frontend_url}"
+            f"/oauth/callback?code={exchange_code}"
+        ),
+        status_code=status.HTTP_302_FOUND,
+    )
+
+
+@router.get(
+    "/github/start"
+)
+def github_start():
+    state = create_oauth_state("github")
+
+    return RedirectResponse(
+        url=get_github_authorization_url(state),
+        status_code=status.HTTP_302_FOUND,
+    )
+
+
+@router.get(
+    "/github/callback"
+)
+def github_callback(
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+    db: Session = Depends(get_db),
+):
+    if error:
+        params = urlencode({
+            "error": "GitHub authorization was cancelled"
+        })
+
+        return RedirectResponse(
+            url=(
+                f"{settings.oauth_frontend_url}"
+                f"/oauth/callback?{params}"
+            ),
+            status_code=status.HTTP_302_FOUND,
+        )
+
+    if not code or not state:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing GitHub OAuth parameters"
+        )
+
+    if not consume_oauth_state(
+        state,
+        "github"
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired OAuth state"
+        )
+
+    try:
+        identity = exchange_github_code(code)
+    except Exception:
+        params = urlencode({
+            "error": "GitHub authentication failed"
+        })
+
+        return RedirectResponse(
+            url=(
+                f"{settings.oauth_frontend_url}"
+                f"/oauth/callback?{params}"
+            ),
+            status_code=status.HTTP_302_FOUND,
+        )
+
+    oauth_account = (
+        db.query(OAuthAccount)
+        .filter(
+            OAuthAccount.provider
+            == identity.provider,
+            OAuthAccount.provider_user_id
+            == identity.provider_user_id,
+        )
+        .first()
+    )
+
+    if oauth_account:
+        user = (
+            db.query(User)
+            .filter(
+                User.id == oauth_account.user_id
+            )
+            .first()
+        )
+
+        if not user or not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User account is inactive"
+            )
+
+    else:
+        user = (
+            db.query(User)
+            .filter(
+                func.lower(User.email)
+                == identity.email.lower()
+            )
+            .first()
+        )
+
+        if not user:
+            user = User(
+                name=identity.name,
+                email=identity.email,
+                password_hash=hash_password(
+                    secrets.token_urlsafe(32)
+                ),
+                is_active=True,
+            )
+
+            db.add(user)
+            db.flush()
+
+        elif not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User account is inactive"
+            )
+
+        oauth_account = OAuthAccount(
+            user_id=user.id,
+            provider=identity.provider,
+            provider_user_id=identity.provider_user_id,
+            email=identity.email,
+        )
+
+        db.add(oauth_account)
+
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+
+            oauth_account = (
+                db.query(OAuthAccount)
+                .filter(
+                    OAuthAccount.provider
+                    == identity.provider,
+                    OAuthAccount.provider_user_id
+                    == identity.provider_user_id,
+                )
+                .first()
+            )
+
+            if not oauth_account:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Unable to create OAuth account"
+                )
+
+            user = (
+                db.query(User)
+                .filter(
+                    User.id == oauth_account.user_id
+                )
+                .first()
+            )
+
+    exchange_code = create_oauth_exchange_code(
+        user.id
+    )
+
+    return RedirectResponse(
+        url=(
+            f"{settings.oauth_frontend_url}"
+            f"/oauth/callback?code={exchange_code}"
+        ),
+        status_code=status.HTTP_302_FOUND,
+    )
+
+
+@router.post(
+    "/oauth/exchange",
+    response_model=AuthResponse
+)
+def oauth_exchange(
+    request: OAuthExchangeRequest,
+    db: Session = Depends(get_db),
+):
+    user_id = consume_oauth_exchange_code(
+        request.code
+    )
+
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired OAuth code"
+        )
+
+    user = (
+        db.query(User)
+        .filter(
+            User.id == user_id,
+            User.is_active == True
+        )
+        .first()
+    )
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or inactive"
+        )
+
+    return build_auth_response(user)
 
 
 def get_current_user(

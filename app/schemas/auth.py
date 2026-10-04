@@ -37,3 +37,9 @@ class UserResponse(BaseModel):
     name: str
     email: EmailStr
     is_active: bool
+
+class OAuthExchangeRequest(BaseModel):
+    code: str = Field(
+        min_length=1,
+        max_length=500
+    )

@@ -24,6 +24,7 @@ def create_mock_api_key():
 
     mock_api_key.id = 1
     mock_api_key.rate_limit = 10
+    mock_api_key.user_id = None
 
     return mock_api_key
 

@@ -4,8 +4,9 @@ import { motion } from "motion/react";
 import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import OAuthCallback from "./pages/OAuthCallback";
 import Dashboard from "./pages/Dashboard";
-import { getCurrentUser } from "./lib/api";
+import { APIError, getCurrentUser } from "./lib/api";
 import {
   ArrowRight,
   BarChart3,
@@ -183,7 +184,7 @@ function LandingPage() {
         {/* Desktop navigation */}
 
         <div className="hidden items-center gap-8 text-sm text-zinc-400 md:flex">
-          {["Platform", "Security", "Developers", "Pricing"].map((item) => (
+          {["Platform", "BYOK", "Security", "Developers", "Pricing"].map((item) => (
             <motion.a
               key={item}
               href={`#${item.toLowerCase()}`}
@@ -489,6 +490,12 @@ function LandingPage() {
           />
         </div>
       </section>
+       {/* =========================================================
+          BYOK / PROVIDER CONTROL
+      ========================================================= */}
+
+      <BYOKSection />
+
 
       {/* =========================================================
           WHY AEGISFLOW / SECURITY
@@ -912,6 +919,806 @@ X-AegisFlow-Key: ••••••••••••
     </main>
   );
 }
+/* ===============================================================
+   BYOK / PROVIDER CONTROL
+=============================================================== */
+
+/* ===============================================================
+   BYOK / PROVIDER CONTROL
+=============================================================== */
+
+function BYOKSection() {
+  const [activeStep, setActiveStep] = useState(0);
+
+  const steps = [
+    "Authentication",
+    "Policy check",
+    "Cache check",
+    "Provider routing",
+  ];
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setActiveStep((current) => (current + 1) % steps.length);
+    }, 1800);
+
+    return () => window.clearInterval(interval);
+  }, [steps.length]);
+
+  return (
+    <section
+      id="byok"
+      className="relative z-10 overflow-hidden border-t border-white/10"
+    >
+      {/* =========================================================
+          AMBIENT BACKGROUND
+      ========================================================= */}
+
+      <div className="pointer-events-none absolute inset-0">
+        <motion.div
+          animate={{
+            scale: [1, 1.12, 1],
+            opacity: [0.1, 0.22, 0.1],
+          }}
+          transition={{
+            duration: 8,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+          className="absolute left-1/2 top-20 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-violet-600/20 blur-[150px]"
+        />
+
+        <motion.div
+          animate={{
+            x: [0, 60, 0],
+            y: [0, -35, 0],
+            opacity: [0.04, 0.12, 0.04],
+          }}
+          transition={{
+            duration: 10,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+          className="absolute left-[5%] top-[40%] h-72 w-72 rounded-full bg-blue-500/10 blur-[120px]"
+        />
+
+        <motion.div
+          animate={{
+            x: [0, -50, 0],
+            y: [0, 30, 0],
+            opacity: [0.03, 0.09, 0.03],
+          }}
+          transition={{
+            duration: 11,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+          className="absolute right-[5%] top-[35%] h-72 w-72 rounded-full bg-violet-500/10 blur-[120px]"
+        />
+      </div>
+
+      <div className="relative mx-auto max-w-7xl px-6 py-28 lg:px-10">
+
+        {/* =======================================================
+            HEADING
+        ======================================================= */}
+
+        <motion.div
+          initial={{ opacity: 0, y: 35 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.25 }}
+          transition={{ duration: 0.8, ease }}
+          className="mx-auto max-w-3xl text-center"
+        >
+          <div className="mb-5 flex items-center justify-center gap-2 text-sm text-violet-300">
+            <LockKeyhole size={15} />
+
+            <span>Bring your own key</span>
+
+            <motion.span
+              animate={{
+                opacity: [0.35, 1, 0.35],
+                scale: [0.9, 1.15, 0.9],
+              }}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+              className="h-1.5 w-1.5 rounded-full bg-violet-400 shadow-[0_0_12px_rgba(167,139,250,0.9)]"
+            />
+          </div>
+
+          <h2 className="text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">
+            Your keys.
+            <span className="block bg-gradient-to-r from-white via-violet-200 to-violet-500 bg-clip-text text-transparent">
+              Your provider. Your control.
+            </span>
+          </h2>
+
+          <p className="mx-auto mt-6 max-w-2xl text-sm leading-7 text-zinc-500 sm:text-base">
+            Connect your own OpenRouter credential and let AegisFlow control
+            the traffic around your AI provider.
+          </p>
+        </motion.div>
+
+        {/* =======================================================
+            MAIN CONTROL PLANE
+        ======================================================= */}
+
+        <motion.div
+          initial={{ opacity: 0, y: 55, scale: 0.98 }}
+          whileInView={{ opacity: 1, y: 0, scale: 1 }}
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ duration: 0.9, delay: 0.15, ease }}
+          className="relative mx-auto mt-16 max-w-6xl"
+        >
+          <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#08090f]/90 p-5 shadow-2xl shadow-violet-950/20 backdrop-blur-2xl sm:p-8 lg:p-10">
+
+            {/* Technical grid */}
+            <div
+              className="pointer-events-none absolute inset-0 opacity-[0.035]"
+              style={{
+                backgroundImage:
+                  "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)",
+                backgroundSize: "55px 55px",
+              }}
+            />
+
+            {/* Top status */}
+            <div className="relative mb-10 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <motion.span
+                  animate={{
+                    opacity: [0.4, 1, 0.4],
+                    scale: [0.9, 1.15, 0.9],
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                  }}
+                  className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.8)]"
+                />
+
+                <span className="text-xs text-zinc-500">
+                  AI traffic control plane
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 rounded-full border border-emerald-400/15 bg-emerald-400/5 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-emerald-300">
+                <LockKeyhole size={11} />
+                Encrypted
+              </div>
+            </div>
+
+            {/* ===================================================
+                DESKTOP FLOW
+            =================================================== */}
+
+            <div className="relative hidden lg:grid lg:grid-cols-[1fr_110px_1.35fr_110px_1fr] lg:items-center lg:gap-3">
+
+              {/* Application */}
+              <BYOKNode
+                icon={<Code2 size={21} />}
+                label="Your Application"
+                description="Your AI traffic"
+              />
+
+              {/* Request flow */}
+              <BYOKTraffic
+                label="REQUEST"
+                reverse={false}
+              />
+
+              {/* AegisFlow */}
+              <motion.div
+                animate={{
+                  boxShadow: [
+                    "0 0 0 1px rgba(139,92,246,0.18), 0 0 25px rgba(139,92,246,0.06)",
+                    "0 0 0 1px rgba(139,92,246,0.42), 0 0 65px rgba(139,92,246,0.18)",
+                    "0 0 0 1px rgba(139,92,246,0.18), 0 0 25px rgba(139,92,246,0.06)",
+                  ],
+                }}
+                transition={{
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+                className="relative min-h-[330px] rounded-3xl border border-violet-400/30 bg-violet-500/[0.055] p-6"
+              >
+                {/* lock */}
+                <motion.div
+                  animate={{
+                    scale: [1, 1.08, 1],
+                    borderColor: [
+                      "rgba(167,139,250,0.2)",
+                      "rgba(167,139,250,0.5)",
+                      "rgba(167,139,250,0.2)",
+                    ],
+                  }}
+                  transition={{
+                    duration: 2.5,
+                    repeat: Infinity,
+                  }}
+                  className="absolute -right-3 -top-3 flex h-8 w-8 items-center justify-center rounded-full border bg-[#0b0b12]"
+                >
+                  <LockKeyhole size={13} className="text-violet-300" />
+                </motion.div>
+
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-violet-400/25 bg-violet-500/10 text-violet-300">
+                      <ShieldCheck size={22} />
+                    </div>
+
+                    <div className="mt-5 text-[10px] uppercase tracking-[0.2em] text-violet-300">
+                      Control Plane
+                    </div>
+
+                    <h3 className="mt-2 text-xl font-medium">
+                      AegisFlow
+                    </h3>
+                  </div>
+
+                  <motion.div
+                    animate={{
+                      opacity: [0.35, 1, 0.35],
+                    }}
+                    transition={{
+                      duration: 1.8,
+                      repeat: Infinity,
+                    }}
+                    className="mt-1 flex items-center gap-1.5 text-[9px] uppercase tracking-[0.15em] text-emerald-300"
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    Processing
+                  </motion.div>
+                </div>
+
+                {/* Processing pipeline */}
+                <div className="mt-7 space-y-2">
+                  {steps.map((step, index) => {
+                    const active = index === activeStep;
+                    const completed = index < activeStep;
+
+                    return (
+                      <motion.div
+                        key={step}
+                        animate={{
+                          opacity: active || completed ? 1 : 0.35,
+                          x: active ? 3 : 0,
+                        }}
+                        transition={{ duration: 0.3 }}
+                        className={`flex items-center justify-between rounded-xl border px-3 py-2.5 ${
+                          active
+                            ? "border-violet-400/25 bg-violet-400/[0.07]"
+                            : "border-transparent bg-transparent"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <motion.span
+                            animate={
+                              active
+                                ? {
+                                    scale: [1, 1.3, 1],
+                                    opacity: [0.6, 1, 0.6],
+                                  }
+                                : {}
+                            }
+                            transition={{
+                              duration: 1.2,
+                              repeat: active ? Infinity : 0,
+                            }}
+                            className={`h-1.5 w-1.5 rounded-full ${
+                              completed
+                                ? "bg-emerald-400"
+                                : active
+                                  ? "bg-violet-300"
+                                  : "bg-zinc-700"
+                            }`}
+                          />
+
+                          <span className="text-[11px] text-zinc-400">
+                            {step}
+                          </span>
+                        </div>
+
+                        <span className="text-[9px] uppercase tracking-wider">
+                          {completed ? (
+                            <span className="text-emerald-400">
+                              done
+                            </span>
+                          ) : active ? (
+                            <span className="text-violet-300">
+                              active
+                            </span>
+                          ) : (
+                            <span className="text-zinc-700">
+                              waiting
+                            </span>
+                          )}
+                        </span>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+
+                {/* Encrypted credential */}
+                <div className="mt-5 flex items-center gap-2 rounded-xl border border-white/5 bg-black/20 px-3 py-2">
+                  <LockKeyhole
+                    size={12}
+                    className="text-violet-300"
+                  />
+
+                  <div className="flex-1 overflow-hidden">
+                    <div className="text-[8px] uppercase tracking-[0.15em] text-zinc-700">
+                      Provider credential
+                    </div>
+
+                    <motion.div
+                      animate={{
+                        x: ["0%", "-18%", "0%"],
+                      }}
+                      transition={{
+                        duration: 5,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                      }}
+                      className="mt-1 whitespace-nowrap text-[10px] tracking-[0.18em] text-zinc-600"
+                    >
+                      ••••••••••••••••••••••••••••••
+                    </motion.div>
+                  </div>
+
+                  <span className="text-[8px] text-emerald-400">
+                    SEALED
+                  </span>
+                </div>
+              </motion.div>
+
+              {/* Provider flow */}
+              <BYOKTraffic
+                label="ROUTE"
+                reverse={false}
+              />
+
+              {/* Provider */}
+              <motion.div
+                animate={{
+                  boxShadow: [
+                    "0 0 0 1px rgba(255,255,255,0.08)",
+                    "0 0 0 1px rgba(139,92,246,0.25), 0 0 30px rgba(139,92,246,0.08)",
+                    "0 0 0 1px rgba(255,255,255,0.08)",
+                  ],
+                }}
+                transition={{
+                  duration: 3.5,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+                className="rounded-3xl border border-white/10 bg-black/20 p-7 text-center"
+              >
+                <motion.div
+                  animate={{
+                    y: [0, -3, 0],
+                  }}
+                  transition={{
+                    duration: 3,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                  className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-violet-400/20 bg-violet-500/10 text-violet-300"
+                >
+                  <Network size={21} />
+                </motion.div>
+
+                <h3 className="mt-5 text-base font-medium">
+                  OpenRouter
+                </h3>
+
+                <p className="mt-2 text-xs text-zinc-600">
+                  AI model provider
+                </p>
+
+                <div className="mt-5 flex items-center justify-center gap-2">
+                  <motion.span
+                    animate={{
+                      opacity: [0.35, 1, 0.35],
+                    }}
+                    transition={{
+                      duration: 1.8,
+                      repeat: Infinity,
+                    }}
+                    className="h-1.5 w-1.5 rounded-full bg-emerald-400"
+                  />
+
+                  <span className="text-[9px] uppercase tracking-[0.16em] text-zinc-600">
+                    Available
+                  </span>
+                </div>
+              </motion.div>
+            </div>
+
+            {/* ===================================================
+                MOBILE FLOW
+            =================================================== */}
+
+            <div className="flex flex-col items-center lg:hidden">
+
+              <BYOKNode
+                icon={<Code2 size={21} />}
+                label="Your Application"
+                description="Your AI traffic"
+              />
+
+              <BYOKVerticalTraffic label="REQUEST" />
+
+              <motion.div
+                animate={{
+                  boxShadow: [
+                    "0 0 0 1px rgba(139,92,246,0.18)",
+                    "0 0 0 1px rgba(139,92,246,0.4), 0 0 45px rgba(139,92,246,0.15)",
+                    "0 0 0 1px rgba(139,92,246,0.18)",
+                  ],
+                }}
+                transition={{
+                  duration: 3,
+                  repeat: Infinity,
+                }}
+                className="w-full max-w-md rounded-3xl border border-violet-400/30 bg-violet-500/[0.055] p-6"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-violet-400/25 bg-violet-500/10 text-violet-300">
+                    <ShieldCheck size={22} />
+                  </div>
+
+                  <div>
+                    <div className="text-[10px] uppercase tracking-[0.2em] text-violet-300">
+                      Control Plane
+                    </div>
+
+                    <h3 className="mt-1 text-lg font-medium">
+                      AegisFlow
+                    </h3>
+                  </div>
+                </div>
+
+                <div className="mt-6 grid grid-cols-2 gap-2">
+                  {steps.map((step, index) => (
+                    <motion.div
+                      key={step}
+                      animate={{
+                        borderColor:
+                          index === activeStep
+                            ? "rgba(167,139,250,0.3)"
+                            : "rgba(255,255,255,0.05)",
+                        backgroundColor:
+                          index === activeStep
+                            ? "rgba(139,92,246,0.07)"
+                            : "rgba(255,255,255,0.015)",
+                      }}
+                      className="rounded-xl border px-3 py-3 text-[10px] text-zinc-500"
+                    >
+                      {step}
+                    </motion.div>
+                  ))}
+                </div>
+
+                <div className="mt-4 flex items-center gap-2 rounded-xl border border-white/5 bg-black/20 px-3 py-2">
+                  <LockKeyhole size={12} className="text-violet-300" />
+                  <span className="text-[9px] tracking-[0.15em] text-zinc-600">
+                    ••••••••••••••••••••
+                  </span>
+                  <span className="ml-auto text-[8px] text-emerald-400">
+                    SEALED
+                  </span>
+                </div>
+              </motion.div>
+
+              <BYOKVerticalTraffic label="ROUTE" />
+
+              <BYOKNode
+                icon={<Network size={21} />}
+                label="OpenRouter"
+                description="AI model provider"
+              />
+            </div>
+
+            {/* ===================================================
+                LIVE REQUEST STATUS
+            =================================================== */}
+
+            <div className="relative mt-8 grid gap-3 sm:grid-cols-4">
+
+              <BYOKStatus
+                label="Authentication"
+                value="Verified"
+                active={activeStep === 0}
+              />
+
+              <BYOKStatus
+                label="Policy"
+                value="Allowed"
+                active={activeStep === 1}
+              />
+
+              <BYOKStatus
+                label="Cache"
+                value="Checked"
+                active={activeStep === 2}
+              />
+
+              <BYOKStatus
+                label="Routing"
+                value="OpenRouter"
+                active={activeStep === 3}
+              />
+
+            </div>
+
+            {/* Bottom explanation */}
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.45, duration: 0.6 }}
+              className="relative mt-5 rounded-2xl border border-white/5 bg-white/[0.02] px-5 py-4 text-center"
+            >
+              <span className="text-xs leading-6 text-zinc-600">
+                Provider credentials are encrypted at rest and isolated to
+                the owning account. AegisFlow uses them only when routing
+                that user's AI traffic.
+              </span>
+            </motion.div>
+          </div>
+        </motion.div>
+
+        {/* =======================================================
+            FEATURE CHIPS
+        ======================================================= */}
+
+        <motion.div
+          initial={{ opacity: 0, y: 25 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{
+            duration: 0.7,
+            delay: 0.2,
+            ease,
+          }}
+          className="mx-auto mt-8 flex max-w-4xl flex-wrap justify-center gap-3"
+        >
+          {[
+            "Bring your own key",
+            "Encrypted credentials",
+            "Per-user isolation",
+            "Application-level control",
+          ].map((item, index) => (
+            <motion.div
+              key={item}
+              whileHover={{
+                y: -3,
+                borderColor: "rgba(167,139,250,0.25)",
+              }}
+              transition={{ duration: 0.2 }}
+              className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.025] px-4 py-2 text-xs text-zinc-500"
+            >
+              <motion.span
+                animate={{
+                  opacity: [0.35, 1, 0.35],
+                }}
+                transition={{
+                  duration: 2,
+                  delay: index * 0.25,
+                  repeat: Infinity,
+                }}
+                className="h-1.5 w-1.5 rounded-full bg-violet-400"
+              />
+
+              {item}
+            </motion.div>
+          ))}
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+
+/* ===============================================================
+   BYOK NODE
+=============================================================== */
+
+function BYOKNode({
+  icon,
+  label,
+  description,
+}: {
+  icon: ReactNode;
+  label: string;
+  description: string;
+}) {
+  return (
+    <motion.div
+      whileHover={{
+        y: -6,
+        scale: 1.02,
+      }}
+      transition={{
+        duration: 0.25,
+      }}
+      className="w-full max-w-[220px] shrink-0 rounded-3xl border border-white/10 bg-black/20 p-7 text-center"
+    >
+      <motion.div
+        animate={{
+          y: [0, -3, 0],
+        }}
+        transition={{
+          duration: 3,
+          repeat: Infinity,
+          ease: "easeInOut",
+        }}
+        className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-violet-400/20 bg-violet-500/10 text-violet-300"
+      >
+        {icon}
+      </motion.div>
+
+      <h3 className="mt-5 text-base font-medium">
+        {label}
+      </h3>
+
+      <p className="mt-2 text-xs leading-5 text-zinc-600">
+        {description}
+      </p>
+    </motion.div>
+  );
+}
+
+
+/* ===============================================================
+   HORIZONTAL TRAFFIC
+=============================================================== */
+
+function BYOKTraffic({
+  label,
+  reverse = false,
+}: {
+  label: string;
+  reverse?: boolean;
+}) {
+  return (
+    <div className="relative h-10 w-full">
+      <div className="absolute left-0 right-0 top-1/2 h-px -translate-y-1/2 bg-white/10" />
+
+      <motion.div
+        className="absolute top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-violet-300 shadow-[0_0_15px_rgba(167,139,250,1)]"
+        animate={{
+          left: reverse
+            ? ["100%", "0%"]
+            : ["0%", "100%"],
+          opacity: [0, 1, 1, 0],
+        }}
+        transition={{
+          duration: 1.7,
+          repeat: Infinity,
+          repeatDelay: 0.25,
+          ease: "linear",
+        }}
+      />
+
+      <motion.div
+        className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-gradient-to-r from-transparent via-violet-400/70 to-transparent"
+        animate={{
+          opacity: [0.15, 0.8, 0.15],
+        }}
+        transition={{
+          duration: 1.7,
+          repeat: Infinity,
+          ease: "easeInOut",
+        }}
+      />
+
+      <div className="absolute left-1/2 top-0 -translate-x-1/2 whitespace-nowrap text-[8px] uppercase tracking-[0.2em] text-zinc-700">
+        {label}
+      </div>
+    </div>
+  );
+}
+
+
+/* ===============================================================
+   VERTICAL TRAFFIC
+=============================================================== */
+
+function BYOKVerticalTraffic({
+  label,
+}: {
+  label: string;
+}) {
+  return (
+    <div className="relative h-14 w-px bg-white/10">
+      <motion.div
+        className="absolute -left-[3px] h-1.5 w-1.5 rounded-full bg-violet-300 shadow-[0_0_15px_rgba(167,139,250,1)]"
+        animate={{
+          top: ["0%", "100%"],
+          opacity: [0, 1, 1, 0],
+        }}
+        transition={{
+          duration: 1.5,
+          repeat: Infinity,
+          repeatDelay: 0.2,
+          ease: "linear",
+        }}
+      />
+
+      <motion.div
+        className="absolute inset-0 bg-gradient-to-b from-transparent via-violet-400/70 to-transparent"
+        animate={{
+          opacity: [0.1, 0.8, 0.1],
+        }}
+        transition={{
+          duration: 1.5,
+          repeat: Infinity,
+        }}
+      />
+
+      <span className="absolute left-3 top-1/2 -translate-y-1/2 whitespace-nowrap text-[8px] uppercase tracking-[0.18em] text-zinc-700">
+        {label}
+      </span>
+    </div>
+  );
+}
+
+
+/* ===============================================================
+   LIVE STATUS
+=============================================================== */
+
+function BYOKStatus({
+  label,
+  value,
+  active,
+}: {
+  label: string;
+  value: string;
+  active: boolean;
+}) {
+  return (
+    <motion.div
+      animate={{
+        borderColor: active
+          ? "rgba(167,139,250,0.28)"
+          : "rgba(255,255,255,0.07)",
+        backgroundColor: active
+          ? "rgba(139,92,246,0.055)"
+          : "rgba(255,255,255,0.015)",
+      }}
+      transition={{ duration: 0.35 }}
+      className="rounded-2xl border px-4 py-3"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[10px] text-zinc-600">
+          {label}
+        </span>
+
+        <motion.span
+          animate={{
+            opacity: active ? [0.5, 1, 0.5] : 0.45,
+          }}
+          transition={{
+            duration: 1.4,
+            repeat: active ? Infinity : 0,
+          }}
+          className="h-1.5 w-1.5 rounded-full bg-violet-400"
+        />
+      </div>
+
+      <div className="mt-2 text-xs text-zinc-400">
+        {value}
+      </div>
+    </motion.div>
+  );
+}
 
 function ComparisonPanel({
   title,
@@ -1256,13 +2063,31 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
           setAuthenticated(true);
         }
       } catch (error) {
-        console.error(error);
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("user");
-        localStorage.removeItem("aegisflow_api_key");
+        console.error("Session validation failed:", error);
 
+        /*
+         * Only destroy the local session when the backend
+         * explicitly says the token is invalid or expired.
+         */
+        if (error instanceof APIError && error.status === 401) {
+          localStorage.removeItem("access_token");
+          localStorage.removeItem("user");
+          localStorage.removeItem("aegisflow_api_key");
+
+          if (active) {
+            setAuthenticated(false);
+          }
+
+          return;
+        }
+
+        /*
+         * Backend/network failure:
+         * Keep the existing session instead of logging
+         * the user out unnecessarily.
+         */
         if (active) {
-          setAuthenticated(false);
+          setAuthenticated(true);
         }
       } finally {
         if (active) {
@@ -1284,7 +2109,11 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
         <div className="flex items-center gap-3 text-sm text-zinc-500">
           <motion.div
             animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            transition={{
+              duration: 1,
+              repeat: Infinity,
+              ease: "linear",
+            }}
             className="h-4 w-4 rounded-full border-2 border-violet-400/20 border-t-violet-300"
           />
           Verifying session...
@@ -1305,6 +2134,10 @@ function App() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<Login />} />
+      <Route
+  path="/oauth/callback"
+  element={<OAuthCallback />}
+/>
       <Route path="/signup" element={<Signup />} />
       <Route
         path="/dashboard"
