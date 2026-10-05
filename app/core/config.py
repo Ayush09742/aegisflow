@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     github_client_secret: str
 
     oauth_frontend_url: str = "http://127.0.0.1:5173"
+    oauth_backend_url: str = "http://127.0.0.1:8000"
     brevo_api_key: str = ""
     brevo_sender_email: str = ""
     brevo_sender_name: str = "AegisFlow"
