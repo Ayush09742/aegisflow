@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.database import Base, engine
+from sqlalchemy import text
 
 from app.models.ai_request import AIRequest
 from app.models.api_key import APIKey
@@ -21,6 +22,24 @@ from app.api.routes.providers import router as providers_router
 
 
 Base.metadata.create_all(bind=engine)
+with engine.connect() as connection:
+    result = connection.execute(
+        text("""
+            SELECT
+                current_database(),
+                current_schema(),
+                current_user,
+                EXISTS (
+                    SELECT 1
+                    FROM information_schema.columns
+                    WHERE table_schema = 'public'
+                      AND table_name = 'api_keys'
+                      AND column_name = 'user_id'
+                )
+        """)
+    ).fetchone()
+
+    print("DB DIAGNOSTIC:", result)
 
 
 app = FastAPI(
