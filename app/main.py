@@ -8,6 +8,7 @@ from app.models.api_key import APIKey
 from app.models.user import User
 from app.models.provider_credential import ProviderCredential
 from app.models.oauth_account import OAuthAccount
+from app.models.password_reset_token import PasswordResetToken
 
 from app.api.routes.chat import router as chat_router
 from app.api.routes.usage import router as usage_router
@@ -32,9 +33,10 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://aegisflow-frontend.onrender.com",
+],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
