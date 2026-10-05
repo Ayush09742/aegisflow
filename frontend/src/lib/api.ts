@@ -243,6 +243,34 @@ export async function login(
 
   return data;
 }
+export async function forgotPassword(
+  email: string
+): Promise<{ message: string }> {
+  const response = await fetch(
+    `${API_BASE_URL}/v1/auth/forgot-password`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email,
+      }),
+    }
+  );
+
+  const data = await parseResponse(response);
+
+  if (!response.ok) {
+    throwAPIError(
+      response,
+      data,
+      "Unable to process password reset request"
+    );
+  }
+
+  return data;
+}
 
 export async function getCurrentUser(
   token: string

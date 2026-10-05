@@ -7,6 +7,9 @@ import Signup from "./pages/Signup";
 import OAuthCallback from "./pages/OAuthCallback";
 import Dashboard from "./pages/Dashboard";
 import { APIError, getCurrentUser } from "./lib/api";
+import ResetPassword from "./pages/ResetPassword";
+import ForgotPassword from "./pages/ForgotPassword";
+import LandingMobile from "./pages/LandingMobile";
 import {
   ArrowRight,
   BarChart3,
@@ -2129,16 +2132,50 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+function ResponsiveLanding() {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+
+    const update = () => {
+      setIsMobile(mediaQuery.matches);
+    };
+
+    update();
+
+    mediaQuery.addEventListener("change", update);
+
+    return () => {
+      mediaQuery.removeEventListener("change", update);
+    };
+  }, []);
+
+  if (isMobile) {
+    return <LandingMobile />;
+  }
+
+  return <LandingPage />;
+}
+
 function App() {
   return (
     <Routes>
-      <Route path="/" element={<LandingPage />} />
+      <Route path="/" element={<ResponsiveLanding />} />
       <Route path="/login" element={<Login />} />
       <Route
   path="/oauth/callback"
   element={<OAuthCallback />}
 />
       <Route path="/signup" element={<Signup />} />
+      <Route
+  path="/forgot-password"
+  element={<ForgotPassword />}
+/>
+      <Route
+  path="/reset-password"
+  element={<ResetPassword />}
+/>
       <Route
         path="/dashboard"
         element={

@@ -289,12 +289,12 @@ export default function Login() {
                   Password
                 </label>
 
-                <button
-                  type="button"
-                  className="text-xs text-violet-300 transition hover:text-violet-200"
-                >
-                  Forgot password?
-                </button>
+                <Link
+  to="/forgot-password"
+  className="text-xs text-violet-300 transition hover:text-violet-200"
+>
+  Forgot password?
+</Link>
               </div>
 
               <div className="relative">
