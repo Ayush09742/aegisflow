@@ -1,6 +1,8 @@
 from urllib.parse import urlencode
 
 import secrets
+import hashlib
+from datetime import datetime, timezone
 
 from fastapi import (
     APIRouter,
@@ -44,6 +46,22 @@ from app.services.oauth_service import (
     get_github_authorization_url,
     get_google_authorization_url,
 )
+from app.models.password_reset_token import PasswordResetToken
+
+from app.schemas.auth import (
+    AuthResponse,
+    ForgotPasswordRequest,
+    LoginRequest,
+    OAuthExchangeRequest,
+    ResetPasswordRequest,
+    SignupRequest,
+    UserResponse,
+)
+
+from app.services.password_reset_service import (
+    create_password_reset_token,
+)
+from app.services.email_service import send_password_reset_email
 
 
 router = APIRouter(
@@ -140,6 +158,119 @@ def login(
         )
 
     return build_auth_response(user)
+@router.post("/forgot-password")
+def forgot_password(
+    request: ForgotPasswordRequest,
+    db: Session = Depends(get_db),
+):
+    user = (
+        db.query(User)
+        .filter(User.email == request.email)
+        .first()
+    )
+
+    # Always return the same response to avoid
+    # revealing whether an email is registered.
+    generic_response = {
+        "message": (
+            "If an account with that email exists, "
+            "a password reset link has been sent."
+        )
+    }
+
+    if not user or not user.is_active:
+        return generic_response
+
+    raw_token = create_password_reset_token(
+        db=db,
+        user=user,
+    )
+
+    reset_url = (
+        f"{settings.oauth_frontend_url}"
+        f"/reset-password?token={raw_token}"
+    )
+
+    try:
+        send_password_reset_email(
+            recipient_email=user.email,
+            reset_url=reset_url,
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to send password reset email",
+        )
+
+    return generic_response
+@router.post("/reset-password")
+def reset_password(
+    request: ResetPasswordRequest,
+    db: Session = Depends(get_db),
+):
+    token_hash = hashlib.sha256(
+        request.token.encode("utf-8")
+    ).hexdigest()
+
+    reset_token = (
+        db.query(PasswordResetToken)
+        .filter(
+            PasswordResetToken.token_hash == token_hash
+        )
+        .first()
+    )
+
+    if not reset_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired password reset token",
+        )
+
+    now = datetime.now(timezone.utc)
+
+    if reset_token.used_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired password reset token",
+        )
+
+    if reset_token.expires_at <= now:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired password reset token",
+        )
+
+    user = (
+        db.query(User)
+        .filter(User.id == reset_token.user_id)
+        .first()
+    )
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired password reset token",
+        )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is inactive",
+        )
+
+    # Update password using AegisFlow's existing password hashing.
+    user.password_hash = hash_password(
+        request.new_password
+    )
+
+    # Make the reset token single-use.
+    reset_token.used_at = now
+
+    db.commit()
+
+    return {
+        "message": "Password reset successfully",
+    }
 
 
 @router.get(
