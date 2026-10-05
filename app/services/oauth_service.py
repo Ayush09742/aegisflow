@@ -67,6 +67,16 @@ def consume_oauth_state(
 
     stored_provider = redis_client.get(key)
 
+    print(
+        "OAUTH STATE DEBUG:",
+        {
+            "state_received": bool(state),
+            "provider_received": provider,
+            "state_found_in_redis": stored_provider is not None,
+            "stored_provider": stored_provider,
+        }
+    )
+
     if stored_provider is None:
         return False
 
@@ -113,9 +123,9 @@ def get_google_authorization_url(
     params = {
         "client_id": settings.google_client_id,
         "redirect_uri": (
-            "http://127.0.0.1:8000"
-            "/v1/auth/google/callback"
-        ),
+        f"{settings.oauth_backend_url}"
+         "/v1/auth/google/callback"
+    ),
         "response_type": "code",
         "scope": "openid email profile",
         "state": state,
@@ -137,9 +147,9 @@ def get_github_authorization_url(
     params = {
         "client_id": settings.github_client_id,
         "redirect_uri": (
-            "http://127.0.0.1:8000"
-            "/v1/auth/github/callback"
-        ),
+        f"{settings.oauth_backend_url}"
+         "/v1/auth/github/callback"
+    ),
         "scope": "user:email",
         "state": state,
     }
@@ -161,9 +171,9 @@ def exchange_google_code(
             "client_id": settings.google_client_id,
             "client_secret": settings.google_client_secret,
             "redirect_uri": (
-                "http://127.0.0.1:8000"
-                "/v1/auth/google/callback"
-            ),
+            f"{settings.oauth_backend_url}"
+             "/v1/auth/google/callback"
+    ),
             "grant_type": "authorization_code",
         },
         timeout=10.0,
@@ -240,9 +250,10 @@ def exchange_github_code(
             "client_secret": settings.github_client_secret,
             "code": code,
             "redirect_uri": (
-                "http://127.0.0.1:8000"
-                "/v1/auth/github/callback"
-            ),
+            f"{settings.oauth_backend_url}"
+             "/v1/auth/github/callback"
+    ),
+    
         },
         headers={
             "Accept": "application/json",
