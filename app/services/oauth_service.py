@@ -67,16 +67,6 @@ def consume_oauth_state(
 
     stored_provider = redis_client.get(key)
 
-    print(
-        "OAUTH STATE DEBUG:",
-        {
-            "state_received": bool(state),
-            "provider_received": provider,
-            "state_found_in_redis": stored_provider is not None,
-            "stored_provider": stored_provider,
-        }
-    )
-
     if stored_provider is None:
         return False
 
