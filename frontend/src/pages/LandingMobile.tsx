@@ -284,7 +284,7 @@ export default function LandingMobile() {
 
 
 
-              className="rounded-full bg-white px-3.5 py-2 text-xs font-semibold text-black"
+              className="rounded-full bg-white px-3.5 py-2 text-xs font-semibold" style={{ color: "#000000", WebkitTextFillColor: "#000000" }}
 
 
 
@@ -480,7 +480,7 @@ export default function LandingMobile() {
 
 
 
-            className="flex min-h-[54px] w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 text-sm font-semibold text-black"
+            className="flex min-h-[54px] w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 text-sm font-semibold" style={{ color: "#000000", WebkitTextFillColor: "#000000" }}
 
 
 
@@ -1576,7 +1576,7 @@ export default function LandingMobile() {
 
 
 
-              className="mt-8 flex min-h-[52px] items-center justify-center rounded-2xl bg-white text-sm font-semibold text-black"
+              className="mt-8 flex min-h-[52px] items-center justify-center rounded-2xl bg-white text-sm font-semibold" style={{ color: "#000000", WebkitTextFillColor: "#000000" }}
 
 
 
@@ -1936,7 +1936,7 @@ export default function LandingMobile() {
 
 
 
-              className="mt-7 flex min-h-[52px] items-center justify-center gap-2 rounded-2xl bg-white text-sm font-semibold text-black"
+              className="mt-7 flex min-h-[52px] items-center justify-center gap-2 rounded-2xl bg-white text-sm font-semibold" style={{ color: "#000000", WebkitTextFillColor: "#000000" }}
 
 
 
