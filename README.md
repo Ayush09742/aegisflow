@@ -1,4 +1,4 @@
-**Copyright © 2026 [Tanishk Awasthi / AegisFlow]. All rights reserved.**
+**Copyright © 2026 Tanishk Awasthi / AegisFlow. All rights reserved.**
 
 AegisFlow is proprietary software. This repository is publicly available for viewing and evaluation only. Copying, modifying, redistributing, or commercially using the code requires prior written permission, subject to applicable law and third-party licenses.
 
@@ -497,7 +497,9 @@ Interested in:
 - Cloud & Deployment
 - Software Engineering
 📜 License
-Add your preferred license before distributing the project publicly.
+## 📜 License
+
+AegisFlow is proprietary software. All rights are reserved by the copyright owner, subject to applicable law and third-party licenses. See the [LICENSE](LICENSE) file for the applicable terms. Viewing this public repository does not grant permission to reuse or redistribute its code.
 ⭐ Support
 If you find AegisFlow interesting, feel free to explore the project, provide feedback, or suggest improvements.
 Built with Python, FastAPI, PostgreSQL, Redis, React, TypeScript, Docker, and a lot of debugging. 🚀
