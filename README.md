@@ -12,7 +12,7 @@ AegisFlow is an **AI API Gateway** that sits between an application and external
 
 It provides a centralized layer for:
 
-- Authentication
+- Authentication 
 - API key management
 - Rate limiting
 - Redis caching
