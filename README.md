@@ -27,7 +27,7 @@ It provides a centralized layer for:
 
 ## 🚀 Why AegisFlow?
 
-Direct AI integrations  can create several practical problems:
+Direct AI integrations can create several practical problems:
 
 - Repeated API requests can increase costs.
 - Rogue loops can consume API budgets quickly.
