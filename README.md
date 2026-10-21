@@ -29,7 +29,7 @@ It provides a centralized layer for:
 
 Direct AI integrations can create several practical problems:
 
-- Repeated API requests can increase costs.
+- Repeated API requests can increase  costs.
 - Rogue loops can consume API budgets quickly.
 - Missing rate limits can cause uncontrolled usage.
 - AI requests can introduce significant latency.
