@@ -1,6 +1,6 @@
 **Copyright © 2026 Tanishk Awasthi / AegisFlow. All rights reserved.**
 
-AegisFlow is proprietary software. This repository is publicly available for viewing and evaluation only. Copying, modifying,redistributing, or commercially using the code requires prior written permission, subject to applicable law and third-party licenses.
+AegisFlow  is proprietary software. This repository is publicly available for viewing and evaluation only. Copying, modifying,redistributing, or commercially using the code requires prior written permission, subject to applicable law and third-party licenses.
 
 See the `LICENSE` file for details . 
 
