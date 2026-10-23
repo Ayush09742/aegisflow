@@ -463,7 +463,7 @@ Application → AegisFlow ├── OpenAI
                     └── Anthropic Claude
 
 Planned Features
-- Multi-provider API credentials
+- Multi-provider  API credentials
 - Provider selection
 - Model selection
 - Provider fallback
