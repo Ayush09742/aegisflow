@@ -36,7 +36,7 @@ Direct AI integrations can create several practical problems:
 - Provider API keys need to be handled securely.
 - Developers need visibility into requests, tokens, latency, failures, and costs.
 
-AegisFlow adds a gateway layer between the application and the AI provider.  
+AegisFlow adds a gateway layer between the application and the AI  provider.  
 
 ```text
 ┌──────────────────────┐
