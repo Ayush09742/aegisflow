@@ -1,12 +1,12 @@
 **Copyright © 2026 Tanishk Awasthi / AegisFlow. All rights reserved.**
 
-AegisFlow is proprietary software. This repository is publicly available for viewing and evaluation only. Copying, modifying, redistributing, or commercially using the code requires prior written permission,subject to applicable law and third-party  licenses.
+AegisFlow is proprietary software. This repository is publicly available for viewing and evaluation only. Copying, modifying, redistributing, or commercially using the code requires prior written permission,subject to applicable law and third-party licenses.
 
 See the `LICENSE` file for details. 
 
 # AegisFlow
 
-> AI API Gateway for secure, reliable, and cost-aware AI integrations.
+> AI API Gateway for secure, reliable, and cost-aware AI integrations .
 
 AegisFlow is an **AI API Gateway** that sits between an application and external AI providers.
 
