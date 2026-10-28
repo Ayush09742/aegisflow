@@ -6,11 +6,11 @@ See the `LICENSE` file for details.
 
 # AegisFlow
 
-> AI API Gateway for secure, reliable, and cost-aware AI integrations.
+> AI API Gateway for secure, reliable,and cost-aware AI integrations.
 
 AegisFlow is an **AI API Gateway** that sits between an application and external AI providers.
 
-It provides a centralized layer  for:
+It provides a centralized layer for:
 
 - Authentication 
 - API key management
